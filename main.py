@@ -5,6 +5,7 @@ from database import (
     get_all_jobs,
     count_jobs,
     get_top_skills,
+    get_skills_for_job,
 )
 
 
@@ -80,14 +81,31 @@ def top_skills_flow():
         percent = job_count / total * 100
         print(f"   {rank}. {skill} - {job_count} of {total} jobs ({percent:.0f}%)")
 
+def get_skills_for_job_flow():
+    try:
+        job_id = int(input("Job number: ").strip())
+    except ValueError:
+        print("Please enter a number, like 1 or 2.")
+        return
+
+    skills = get_skills_for_job(job_id)
+    if not skills:
+        print(f"No skills found for job #{job_id}. Use option 2 to see job numbers.")
+        return
+
+    print(f"\nSkills for job #{job_id}:")
+    for skill in skills:
+        print(f"   - {skill}")
+
 
 def show_menu():
     print("\n=== Job Skill Tracker ===")
     print("1. Add a job posting")
     print("2. List saved jobs")
     print("3. Show top skills")
-    print("4. Show number of jobs saved")
-    print("5. Quit")
+    print("4. Show skills for a job")
+    print("5. Show number of jobs saved")
+    print("6. Quit")
 
 
 def main():
@@ -104,12 +122,14 @@ def main():
         elif choice == "3":
             top_skills_flow()
         elif choice == "4":
-            count_jobs_flow()
+            get_skills_for_job_flow()
         elif choice == "5":
+            count_jobs_flow()
+        elif choice == "6":
             print("Goodbye!")
             break
         else:
-            print("Invalid option, please choose 1-5.")
+            print("Invalid option, please choose 1-6.")
 
 
 if __name__ == "__main__":

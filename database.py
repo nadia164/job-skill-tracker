@@ -82,3 +82,12 @@ def get_top_skills(limit=10):
     ).fetchall()
     conn.close()
     return rows
+
+def get_skills_for_job(job_id):
+    conn = sqlite3.connect(DB_NAME)
+    rows = conn.execute(
+        "SELECT skill FROM skills WHERE job_id = ? ORDER BY id",
+        (job_id,),
+        ).fetchall()
+    conn.close()
+    return [row[0] for row in rows]
