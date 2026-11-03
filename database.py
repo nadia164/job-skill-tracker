@@ -2,6 +2,7 @@ import sqlite3
 
 DB_NAME = "jobs.db"
 
+
 def create_tables():
     conn = sqlite3.connect(DB_NAME)
 
@@ -26,32 +27,58 @@ def create_tables():
     conn.commit()
     conn.close()
 
-def add_job(title, description):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.execute(
-        "INSERT INTO jobs (title, description) VALUES (?, ?)",
-        (title, description),
-    )
 
-    conn.commit()
-    job_id = cursor.lastrowid
-    conn.close()
+def add_job_with_skills(title, description, skills):
+    conn = sqlite3.connect(DB_NAME)
+    try:
+        cursor = conn.execute(
+            "INSERT INTO jobs (title, description) VALUES (?, ?)",
+            (title, description),
+        )
+        job_id = cursor.lastrowid
+
+        conn.executemany(
+            "INSERT INTO skills (job_id, skill) VALUES (?, ?)",
+            [(job_id, skill) for skill in skills],
+        )
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
     return job_id
+
 
 def get_all_jobs():
     conn = sqlite3.connect(DB_NAME)
     rows = conn.execute(
-        "SELECT id, title, created_at FROM jobs ORDER by id"
+        "SELECT id, title, created_at FROM jobs ORDER BY id"
     ).fetchall()
-
     conn.close()
     return rows
 
+
 def count_jobs():
     conn = sqlite3.connect(DB_NAME)
-    count = conn.execute(
-        "SELECT COUNT(*) FROM jobs"
-    ).fetchone()[0]
-
+    count = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
     conn.close()
     return count
+
+
+def get_top_skills(limit=10):
+    conn = sqlite3.connect(DB_NAME)
+    rows = conn.execute(
+        """
+        SELECT skill, COUNT(DISTINCT job_id) AS job_count
+        FROM skills
+        GROUP BY LOWER(skill)
+        ORDER BY job_count DESC, LOWER(skill)
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return rows

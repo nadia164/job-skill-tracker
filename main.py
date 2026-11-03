@@ -1,4 +1,12 @@
-from database import create_tables, add_job, get_all_jobs, count_jobs
+from ai import extract_skills
+from database import (
+    create_tables,
+    add_job_with_skills,
+    get_all_jobs,
+    count_jobs,
+    get_top_skills,
+)
+
 
 def read_multiline(prompt):
     print(prompt)
@@ -11,6 +19,7 @@ def read_multiline(prompt):
         lines.append(line)
     return "\n".join(lines).strip()
 
+
 def add_job_flow():
     title = input("Job title: ").strip()
     if not title:
@@ -21,8 +30,19 @@ def add_job_flow():
     if not description:
         print("Description can't be empty.")
         return
-    job_id = add_job(title, description)
-    print(f"Saved job #{job_id}: {title}")
+
+    print("\nExtracting skills with AI...")
+    try:
+        skills = extract_skills(description)
+    except Exception as error:
+        print(f"Couldn't extract skills: {error}")
+        print("Nothing was saved. Please try again.")
+        return
+
+    job_id = add_job_with_skills(title, description, skills)
+    print(f"Saved job #{job_id}: {title} ({len(skills)} skills found)")
+    print("Skills: " + ", ".join(skills))
+
 
 def list_jobs_flow():
     jobs = get_all_jobs()
@@ -34,6 +54,7 @@ def list_jobs_flow():
     for job_id, title, created_at in jobs:
         print(f"   #{job_id}  {title}  (added {created_at})")
 
+
 def count_jobs_flow():
     count = count_jobs()
     if not count:
@@ -42,6 +63,24 @@ def count_jobs_flow():
 
     print(f"\nNumber of jobs saved: {count}")
 
+
+def top_skills_flow():
+    total = count_jobs()
+    if not total:
+        print("No jobs saved yet.")
+        return
+
+    top = get_top_skills(10)
+    if not top:
+        print("No skills saved yet.")
+        return
+
+    print(f"\nTop skills across {total} jobs:")
+    for rank, (skill, job_count) in enumerate(top, start=1):
+        percent = job_count / total * 100
+        print(f"   {rank}. {skill} - {job_count} of {total} jobs ({percent:.0f}%)")
+
+
 def show_menu():
     print("\n=== Job Skill Tracker ===")
     print("1. Add a job posting")
@@ -49,6 +88,7 @@ def show_menu():
     print("3. Show top skills")
     print("4. Show number of jobs saved")
     print("5. Quit")
+
 
 def main():
     create_tables()
@@ -62,7 +102,7 @@ def main():
         elif choice == "2":
             list_jobs_flow()
         elif choice == "3":
-            print("Top skills coming soon!")
+            top_skills_flow()
         elif choice == "4":
             count_jobs_flow()
         elif choice == "5":
@@ -70,6 +110,7 @@ def main():
             break
         else:
             print("Invalid option, please choose 1-5.")
+
 
 if __name__ == "__main__":
     main()
