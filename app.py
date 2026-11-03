@@ -1,6 +1,6 @@
 import streamlit as st
 
-from database import create_tables, get_all_jobs, get_skills_for_job
+from database import create_tables, get_all_jobs, get_skills_for_job, count_jobs
 
 st.set_page_config(page_title="Job Skill Tracker", layout="wide")
 
@@ -19,6 +19,8 @@ def top_skills_page():
 
 def saved_jobs_page():
     st.title("Saved jobs")
+
+    st.metric("Jobs saved", count_jobs())
 
     jobs = get_all_jobs()
     if not jobs:
