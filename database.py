@@ -46,3 +46,12 @@ def get_all_jobs():
 
     conn.close()
     return rows
+
+def count_jobs():
+    conn = sqlite3.connect(DB_NAME)
+    count = conn.execute(
+        "SELECT COUNT(*) FROM jobs"
+    ).fetchone()[0]
+
+    conn.close()
+    return count

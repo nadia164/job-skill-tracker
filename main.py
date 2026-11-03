@@ -1,4 +1,4 @@
-from database import create_tables, add_job, get_all_jobs
+from database import create_tables, add_job, get_all_jobs, count_jobs
 
 def read_multiline(prompt):
     print(prompt)
@@ -34,12 +34,21 @@ def list_jobs_flow():
     for job_id, title, created_at in jobs:
         print(f"   #{job_id}  {title}  (added {created_at})")
 
+def count_jobs_flow():
+    count = count_jobs()
+    if not count:
+        print("No jobs are saved.")
+        return
+
+    print(f"\nNumber of jobs saved: {count}")
+
 def show_menu():
     print("\n=== Job Skill Tracker ===")
     print("1. Add a job posting")
     print("2. List saved jobs")
     print("3. Show top skills")
-    print("4. Quit")
+    print("4. Show number of jobs saved")
+    print("5. Quit")
 
 def main():
     create_tables()
@@ -55,10 +64,12 @@ def main():
         elif choice == "3":
             print("Top skills coming soon!")
         elif choice == "4":
+            count_jobs_flow()
+        elif choice == "5":
             print("Goodbye!")
             break
         else:
-            print("Invalid option, please choose 1-4.")
+            print("Invalid option, please choose 1-5.")
 
 if __name__ == "__main__":
     main()
