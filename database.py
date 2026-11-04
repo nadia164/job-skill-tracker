@@ -28,6 +28,28 @@ def create_tables():
     conn.close()
 
 
+def build_job_filters(title_filter=None, start_date=None, end_date=None):
+    conditions = []
+    params = []
+
+    if title_filter:
+        conditions.append("jobs.title LIKE ?")
+        params.append(f"%{title_filter}%")
+
+    if start_date:
+        conditions.append("DATE(jobs.created_at, 'localtime') >= ?")
+        params.append(start_date)
+
+    if end_date:
+        conditions.append("DATE(jobs.created_at, 'localtime') <= ?")
+        params.append(end_date)
+
+    if not conditions:
+        return "", params
+
+    return "WHERE " + " AND ".join(conditions), params
+
+
 def add_job_with_skills(title, description, skills):
     conn = sqlite3.connect(DB_NAME)
     try:
@@ -61,41 +83,74 @@ def get_all_jobs():
     return rows
 
 
-def count_jobs():
+def count_jobs(title_filter=None, start_date=None, end_date=None):
+    where, params = build_job_filters(title_filter, start_date, end_date)
+
     conn = sqlite3.connect(DB_NAME)
-    count = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+    count = conn.execute(
+        f"SELECT COUNT(*) FROM jobs {where}",
+        params,
+    ).fetchone()[0]
     conn.close()
     return count
 
 
-def get_top_skills(limit=10):
+def get_top_skills(limit=10, title_filter=None, start_date=None, end_date=None):
+    where, params = build_job_filters(title_filter, start_date, end_date)
+
     conn = sqlite3.connect(DB_NAME)
     rows = conn.execute(
-        """
-        SELECT skill, COUNT(DISTINCT job_id) AS job_count
+        f"""
+        SELECT skills.skill, COUNT(DISTINCT skills.job_id) AS job_count
         FROM skills
-        GROUP BY LOWER(skill)
-        ORDER BY job_count DESC, LOWER(skill)
+        JOIN jobs ON jobs.id = skills.job_id
+        {where}
+        GROUP BY LOWER(skills.skill)
+        ORDER BY job_count DESC, LOWER(skills.skill)
         LIMIT ?
         """,
-        (limit,),
+        params + [limit],
     ).fetchall()
     conn.close()
     return rows
+
 
 def get_skills_for_job(job_id):
     conn = sqlite3.connect(DB_NAME)
     rows = conn.execute(
         "SELECT skill FROM skills WHERE job_id = ? ORDER BY id",
         (job_id,),
-        ).fetchall()
+    ).fetchall()
     conn.close()
     return [row[0] for row in rows]
 
-def count_unique_skills():
+
+def count_unique_skills(title_filter=None, start_date=None, end_date=None):
+    where, params = build_job_filters(title_filter, start_date, end_date)
+
     conn = sqlite3.connect(DB_NAME)
-    rows = conn.execute(
-        "SELECT COUNT(DISTINCT LOWER(skill)) FROM skills"
+    count = conn.execute(
+        f"""
+        SELECT COUNT(DISTINCT LOWER(skills.skill))
+        FROM skills
+        JOIN jobs ON jobs.id = skills.job_id
+        {where}
+        """,
+        params,
     ).fetchone()[0]
     conn.close()
-    return rows
+    return count
+
+
+def get_job_date_range():
+    conn = sqlite3.connect(DB_NAME)
+    first_date, last_date = conn.execute(
+        """
+        SELECT
+            MIN(DATE(created_at, 'localtime')),
+            MAX(DATE(created_at, 'localtime'))
+        FROM jobs
+        """
+    ).fetchone()
+    conn.close()
+    return first_date, last_date

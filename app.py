@@ -1,16 +1,19 @@
-import streamlit as st
-import altair as alt
-import pandas as pd 
-from ai import extract_skills
+from datetime import date
 
+import altair as alt
+import pandas as pd
+import streamlit as st
+
+from ai import extract_skills
 from database import (
-    create_tables, 
+    create_tables,
     add_job_with_skills,
-    get_all_jobs, 
-    get_skills_for_job, 
+    get_all_jobs,
+    get_skills_for_job,
     count_jobs,
     get_top_skills,
     count_unique_skills,
+    get_job_date_range,
 )
 
 st.set_page_config(page_title="Job Skill Tracker", layout="wide")
@@ -20,9 +23,10 @@ create_tables()
 st.sidebar.title("Job Skill Tracker")
 page = st.sidebar.radio("Go to", ["Add a job", "Top skills", "Saved jobs"])
 
+
 def add_job_page():
     st.title("Add a job")
-    
+
     with st.form("add_job_form"):
         title = st.text_input("Job title", placeholder="Junior Software Engineer")
         description = st.text_area(
@@ -45,7 +49,6 @@ def add_job_page():
     with st.spinner("Extracting skills with AI..."):
         try:
             skills = extract_skills(description)
-
         except Exception as error:
             st.error(f"Couldn't extract skills: {error}")
             st.info("Nothing was saved. Your text is still in the form, so you can try again.")
@@ -60,25 +63,58 @@ def add_job_page():
     st.success(f"Saved job #{job_id}: {title} ({len(skills)} skills found)")
     st.write(", ".join(skills))
 
+
 def top_skills_page():
     st.title("Top skills")
-    
-    total = count_jobs()
-    if not total:
+
+    if not count_jobs():
         st.info("No jobs saved yet. Add one on the Add a job page.")
+        return
+
+    first_date, last_date = get_job_date_range()
+    first_date = date.fromisoformat(first_date)
+    last_date = date.fromisoformat(last_date)
+
+    filter_col1, filter_col2 = st.columns(2)
+    title_filter = filter_col1.text_input(
+        "Job title contains",
+        placeholder="engineer",
+    ).strip()
+    date_range = filter_col2.date_input(
+        "Date added",
+        value=(first_date, last_date),
+        min_value=first_date,
+        max_value=last_date,
+    )
+
+    if len(date_range) != 2:
+        st.info("Pick an end date to apply the date filter.")
+        return
+
+    start_date, end_date = date_range
+
+    filters = {
+        "title_filter": title_filter or None,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+    }
+
+    total = count_jobs(**filters)
+    if not total:
+        st.info("No jobs match these filters.")
         return
 
     limit = st.slider("How many skills to show", min_value=5, max_value=30, value=10)
 
-    top = get_top_skills(limit)
+    top = get_top_skills(limit, **filters)
     if not top:
-        st.info("No skills saved yet.")
+        st.info("No skills found for these jobs.")
         return
 
-    unique_count = count_unique_skills()
+    unique_count = count_unique_skills(**filters)
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Job saved", total)
+    col1.metric("Matching jobs", total)
     col2.metric("Top skill", top[0][0])
     col3.metric("Unique skills", unique_count)
 
@@ -94,8 +130,8 @@ def top_skills_page():
             tooltip=["Skill", "Jobs", "Percent of jobs"],
         )
     )
-
     st.altair_chart(chart)
+
     st.dataframe(df, hide_index=True)
 
 
@@ -108,6 +144,7 @@ def saved_jobs_page():
     if not jobs:
         st.info("No jobs saved yet. Add one on the Add a job page.")
         return
+
     table = [
         {"#": job_id, "Title": title, "Added": created_at}
         for job_id, title, created_at in jobs
@@ -126,6 +163,7 @@ def saved_jobs_page():
 
     for skill in skills:
         st.markdown(f"- {skill}")
+
 
 if page == "Add a job":
     add_job_page()
