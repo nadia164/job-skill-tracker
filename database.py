@@ -24,6 +24,13 @@ def create_tables():
         )
     """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS my_skills (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            skill TEXT NOT NULL UNIQUE COLLATE NOCASE
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -154,3 +161,31 @@ def get_job_date_range():
     ).fetchone()
     conn.close()
     return first_date, last_date
+
+def add_my_skills(skills):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.executemany(
+        "INSERT OR IGNORE INTO my_skills (skill) VALUES (?)",
+        [(skill,) for skill in skills],
+    )
+    conn.commit()
+    added = cursor.rowcount
+    conn.close()
+    return added
+
+def remove_my_skills(skills):
+    conn = sqlite3.connect(DB_NAME)
+    conn.executemany(
+        "DELETE FROM my_skills WHERE skill = ?",
+        [(skill,) for skill in skills],
+    )
+    conn.commit()
+    conn.close()
+
+def get_my_skills():
+    conn = sqlite3.connect(DB_NAME)
+    rows = conn.execute(
+        "SELECT skill FROM my_skills ORDER BY skill COLLATE NOCASE"
+    ).fetchall()
+    conn.close()
+    return [row[0] for row in rows]

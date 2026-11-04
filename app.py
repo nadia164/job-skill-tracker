@@ -14,6 +14,9 @@ from database import (
     get_top_skills,
     count_unique_skills,
     get_job_date_range,
+    add_my_skills,
+    remove_my_skills,
+    get_my_skills,
 )
 
 st.set_page_config(page_title="Job Skill Tracker", layout="wide")
@@ -21,7 +24,7 @@ st.set_page_config(page_title="Job Skill Tracker", layout="wide")
 create_tables()
 
 st.sidebar.title("Job Skill Tracker")
-page = st.sidebar.radio("Go to", ["Add a job", "Top skills", "Saved jobs"])
+page = st.sidebar.radio("Go to", ["Add a job", "Top skills", "My skills", "Saved jobs"])
 
 
 def add_job_page():
@@ -138,6 +141,99 @@ def top_skills_page():
 
     st.dataframe(df, hide_index=True)
 
+def my_skills_page():
+    st.title("My skills")
+
+    with st.form("add_my_skills_form", clear_on_submit=True):
+        new_skills = st.text_input(
+            "Add you skills, separated by commas",
+            placeholder = "Python, SQL, Git, Kotlin",
+        )
+        add_clicked = st.form_submit_button("Add skills")
+
+    if add_clicked:
+        skills = [skill.strip() for skill in new_skills.split(",") if skill.strip()]
+        if not skills:
+            st.error("Enter at least one skill.")
+        else:
+            added = add_my_skills(skills)
+            st.success(f"Added {added} new skills(s).")
+
+    my_skills = get_my_skills()
+    if not my_skills:
+        st.info("Add your skills above to compare them with your saved job postings.")
+        return
+    
+    st.write("Your skills: " + ", ".join(my_skills))
+
+    to_remove = st.multiselect("SElect skills to remove", my_skills)
+    if to_remove and st.button("Remove selected"):
+        remove_my_skills(to_remove)
+        st.rerun()
+
+    st.subheader("Compare with job postings")
+
+
+    total = count_jobs()
+    if not total:
+        st.info("Add some job postings to compare your skills against.")
+        return
+
+    limit = st.slider("Compare against the top", min_value=5, max_value=30, value=10)
+
+    top = get_top_skills(limit)
+    if not top:
+        st.info("No skills saved from job postings yet.")
+        return
+
+    my_lower = {skill.lower() for skill in my_skills}
+
+    df = pd.DataFrame(top, columns=["Skill", "Jobs"])
+    df["Percent of jobs"] = (df["Jobs"] / total * 100).round().astype(int)
+    df["Status"] = [
+        "You have it" if skill.lower() in my_lower else "To learn"
+        for skill in df["Skill"]
+    ]
+
+    have = int((df["Status"] == "You have it").sum())
+    shown = len(df)
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Match", f"{have / shown * 100:.0f}%")
+    col2.metric("Skills you have", f"{have} of {shown}")
+    col3.metric("Skills to learn", shown - have)
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X("Jobs:Q", title="Number of jobs", axis=alt.Axis(tickMinStep=1)),
+            y=alt.Y("Skill:N", sort="-x", title=None),
+            color=alt.Color(
+                "Status:N",
+                scale=alt.Scale(
+                    domain=["You have it", "To learn"],
+                    range=["#1D9E75", "#D85A30"],
+                ),
+                legend=alt.Legend(title=None, orient="top"),
+            ),
+            tooltip=["Skill", "Jobs", "Percent of jobs", "Status"],
+        )
+    )
+    st.altair_chart(chart)
+
+    to_learn = df[df["Status"] == "To learn"]
+    if to_learn.empty:
+        st.success("You have every skill in this list.")
+        return
+
+    st.subheader("What to learn next")
+    for skill, jobs, percent in zip(
+        to_learn["Skill"], to_learn["Jobs"], to_learn["Percent of jobs"]
+    ):
+        st.markdown(f"- **{skill}**: in {jobs} of {total} jobs ({percent}%)")
+
+
 
 def saved_jobs_page():
     st.title("Saved jobs")
@@ -173,5 +269,7 @@ if page == "Add a job":
     add_job_page()
 elif page == "Top skills":
     top_skills_page()
+elif page == "My skills":
+    my_skills_page()
 else:
     saved_jobs_page()
