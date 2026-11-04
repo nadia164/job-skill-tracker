@@ -10,6 +10,7 @@ from database import (
     get_skills_for_job, 
     count_jobs,
     get_top_skills,
+    count_unique_skills,
 )
 
 st.set_page_config(page_title="Job Skill Tracker", layout="wide")
@@ -71,12 +72,15 @@ def top_skills_page():
 
     top = get_top_skills(limit)
     if not top:
-        st.infor("No skills saved yet.")
+        st.info("No skills saved yet.")
         return
 
-    col1, col2 = st.columns(2)
+    unique_count = count_unique_skills()
+
+    col1, col2, col3 = st.columns(3)
     col1.metric("Job saved", total)
     col2.metric("Top skill", top[0][0])
+    col3.metric("Unique skills", unique_count)
 
     df = pd.DataFrame(top, columns=["Skill", "Jobs"])
     df["Percent of jobs"] = (df["Jobs"] / total * 100).round().astype(int)

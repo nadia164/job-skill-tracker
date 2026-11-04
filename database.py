@@ -91,3 +91,11 @@ def get_skills_for_job(job_id):
         ).fetchall()
     conn.close()
     return [row[0] for row in rows]
+
+def count_unique_skills():
+    conn = sqlite3.connect(DB_NAME)
+    rows = conn.execute(
+        "SELECT COUNT(DISTINCT LOWER(skill)) FROM skills"
+    ).fetchone()[0]
+    conn.close()
+    return rows
