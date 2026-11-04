@@ -17,6 +17,7 @@ from database import (
     add_my_skills,
     remove_my_skills,
     get_my_skills,
+    delete_job,
 )
 from scraper import FetchError, fetch_posting_text
 
@@ -286,6 +287,9 @@ def my_skills_page():
 def saved_jobs_page():
     st.title("Saved jobs")
 
+    if "flash_message" in st.session_state:
+        st.success(st.session_state.pop("flash_message"))
+
     st.metric("Jobs saved", count_jobs())
 
     jobs = get_all_jobs()
@@ -299,18 +303,28 @@ def saved_jobs_page():
     ]
     st.dataframe(table, hide_index=True)
 
-    st.subheader("Skills for one job")
+    st.subheader("Job details")
 
     job_options = {f"#{job_id} - {title}": job_id for job_id, title, _ in jobs}
     choice = st.selectbox("Pick a job", list(job_options.keys()))
+    selected_id = job_options[choice]
 
-    skills = get_skills_for_job(job_options[choice])
-    if not skills:
+    skills = get_skills_for_job(selected_id)
+    if skills:
+        for skill in skills:
+            st.markdown(f"- {skill}")
+    else:
         st.write("No skills saved for this job.")
-        return
 
-    for skill in skills:
-        st.markdown(f"- {skill}")
+    st.subheader("Delete this job")
+    confirm = st.checkbox(f"Yes, permanently delete {choice} and its skills")
+
+    if st.button("Delete job", type="primary", disabled=not confirm):
+        if delete_job(selected_id):
+            st.session_state["flash_message"] = f"Deleted {choice}."
+        else:
+            st.session_state["flash_message"] = f"{choice} was already deleted."
+        st.rerun()
 
 
 if page == "Add a job":

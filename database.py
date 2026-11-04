@@ -162,6 +162,7 @@ def get_job_date_range():
     conn.close()
     return first_date, last_date
 
+
 def add_my_skills(skills):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.executemany(
@@ -173,6 +174,7 @@ def add_my_skills(skills):
     conn.close()
     return added
 
+
 def remove_my_skills(skills):
     conn = sqlite3.connect(DB_NAME)
     conn.executemany(
@@ -182,6 +184,7 @@ def remove_my_skills(skills):
     conn.commit()
     conn.close()
 
+
 def get_my_skills():
     conn = sqlite3.connect(DB_NAME)
     rows = conn.execute(
@@ -189,3 +192,19 @@ def get_my_skills():
     ).fetchall()
     conn.close()
     return [row[0] for row in rows]
+
+
+def delete_job(job_id):
+    conn = sqlite3.connect(DB_NAME)
+    try:
+        conn.execute("DELETE FROM skills WHERE job_id = ?", (job_id,))
+        cursor = conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+        conn.commit()
+        deleted = cursor.rowcount
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return deleted > 0
