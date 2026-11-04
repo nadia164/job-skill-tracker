@@ -1,4 +1,6 @@
 import streamlit as st
+import altair as alt
+import pandas as pd 
 from ai import extract_skills
 
 from database import (
@@ -6,7 +8,8 @@ from database import (
     add_job_with_skills,
     get_all_jobs, 
     get_skills_for_job, 
-    count_jobs
+    count_jobs,
+    get_top_skills,
 )
 
 st.set_page_config(page_title="Job Skill Tracker", layout="wide")
@@ -47,6 +50,10 @@ def add_job_page():
             st.info("Nothing was saved. Your text is still in the form, so you can try again.")
             return
 
+    if not skills:
+        st.warning("No skills were found, so nothing was saved. Make sure you pasted a job posting.")
+        return
+
     job_id = add_job_with_skills(title, description, skills)
 
     st.success(f"Saved job #{job_id}: {title} ({len(skills)} skills found)")
@@ -54,7 +61,39 @@ def add_job_page():
 
 def top_skills_page():
     st.title("Top skills")
-    st.info("Coming soon.")
+    
+    total = count_jobs()
+    if not total:
+        st.info("No jobs saved yet. Add one on the Add a job page.")
+        return
+
+    limit = st.slider("How many skills to show", min_value=5, max_value=30, value=10)
+
+    top = get_top_skills(limit)
+    if not top:
+        st.infor("No skills saved yet.")
+        return
+
+    col1, col2 = st.columns(2)
+    col1.metric("Job saved", total)
+    col2.metric("Top skill", top[0][0])
+
+    df = pd.DataFrame(top, columns=["Skill", "Jobs"])
+    df["Percent of jobs"] = (df["Jobs"] / total * 100).round().astype(int)
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X("Jobs:Q", title="Number of jobs", axis=alt.Axis(tickMinStep=1)),
+            y=alt.Y("Skill:N", sort="-x", title=None),
+            tooltip=["Skill", "Jobs", "Percent of jobs"],
+        )
+    )
+
+    st.altair_chart(chart)
+    st.dataframe(df, hide_index=True)
+
 
 def saved_jobs_page():
     st.title("Saved jobs")
