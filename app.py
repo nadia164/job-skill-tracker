@@ -18,6 +18,7 @@ from database import (
     remove_my_skills,
     get_my_skills,
 )
+from scraper import FetchError, fetch_posting_text
 
 st.set_page_config(page_title="Job Skill Tracker", layout="wide")
 
@@ -30,13 +31,23 @@ page = st.sidebar.radio("Go to", ["Add a job", "Top skills", "My skills", "Saved
 def add_job_page():
     st.title("Add a job")
 
+    source = st.radio("How do you want to add it?", ["Paste text", "From a link"], horizontal=True)
+
     with st.form("add_job_form"):
         title = st.text_input("Job title", placeholder="Junior Software Engineer")
-        description = st.text_area(
-            "Job description",
-            height=300,
-            placeholder="Paste the full job posting here",
-        )
+
+        if source == "Paste text":
+            description = st.text_area(
+                "Job description",
+                height=300,
+                placeholder="Paste the full job posting here",
+            )
+            url = ""
+        else:
+            url = st.text_input("Link to the job posting", placeholder="https://company.com/careers/junior-engineer")
+            st.caption("Works best with company career pages. Sites like LinkedIn and Indeed usually block this.")
+            description = ""
+
         submitted = st.form_submit_button("Extract skills and save")
 
     if not submitted:
@@ -44,21 +55,38 @@ def add_job_page():
 
     title = title.strip()
     description = description.strip()
+    url = url.strip()
 
-    if not title or not description:
-        st.error("Enter both a job title and a job description.")
+    if not title:
+        st.error("Enter a job title.")
         return
+
+    if source == "Paste text" and not description:
+        st.error("Paste the job description.")
+        return
+
+    if source == "From a link":
+        if not url:
+            st.error("Enter a link to the job posting.")
+            return
+
+        with st.spinner("Reading the page..."):
+            try:
+                description = fetch_posting_text(url)
+            except FetchError as error:
+                st.error(str(error))
+                return
 
     with st.spinner("Extracting skills with AI..."):
         try:
             skills = extract_skills(description)
         except Exception as error:
             st.error(f"Couldn't extract skills: {error}")
-            st.info("Nothing was saved. Your text is still in the form, so you can try again.")
+            st.info("Nothing was saved. Your input is still in the form, so you can try again.")
             return
 
     if not skills:
-        st.warning("No skills were found, so nothing was saved. Make sure you pasted a job posting.")
+        st.warning("No skills were found, so nothing was saved. Make sure the text or link is a job posting.")
         return
 
     job_id = add_job_with_skills(title, description, skills)
@@ -66,12 +94,16 @@ def add_job_page():
     st.success(f"Saved job #{job_id}: {title} ({len(skills)} skills found)")
     st.write(", ".join(skills))
 
+    if source == "From a link":
+        with st.expander("Text read from the page"):
+            st.text(description)
+
 
 def top_skills_page():
     st.title("Top skills")
 
     all_jobs = count_jobs()
-    if not count_jobs():
+    if not all_jobs:
         st.info("No jobs saved yet. Add one on the Add a job page.")
         return
 
@@ -141,13 +173,14 @@ def top_skills_page():
 
     st.dataframe(df, hide_index=True)
 
+
 def my_skills_page():
     st.title("My skills")
 
     with st.form("add_my_skills_form", clear_on_submit=True):
         new_skills = st.text_input(
-            "Add you skills, separated by commas",
-            placeholder = "Python, SQL, Git, Kotlin",
+            "Add your skills, separated by commas",
+            placeholder="Python, SQL, Git, Kotlin",
         )
         add_clicked = st.form_submit_button("Add skills")
 
@@ -157,22 +190,21 @@ def my_skills_page():
             st.error("Enter at least one skill.")
         else:
             added = add_my_skills(skills)
-            st.success(f"Added {added} new skills(s).")
+            st.success(f"Added {added} new skill(s).")
 
     my_skills = get_my_skills()
     if not my_skills:
         st.info("Add your skills above to compare them with your saved job postings.")
         return
-    
+
     st.write("Your skills: " + ", ".join(my_skills))
 
-    to_remove = st.multiselect("SElect skills to remove", my_skills)
+    to_remove = st.multiselect("Select skills to remove", my_skills)
     if to_remove and st.button("Remove selected"):
         remove_my_skills(to_remove)
         st.rerun()
 
     st.subheader("Compare with job postings")
-
 
     total = count_jobs()
     if not total:
@@ -225,13 +257,12 @@ def my_skills_page():
     to_learn = df[df["Status"] == "To learn"]
     if to_learn.empty:
         st.success("You have every skill in this list.")
-        return
-
-    st.subheader("What to learn next")
-    for skill, jobs, percent in zip(
-        to_learn["Skill"], to_learn["Jobs"], to_learn["Percent of jobs"]
-    ):
-        st.markdown(f"- **{skill}**: in {jobs} of {total} jobs ({percent}%)")
+    else:
+        st.subheader("What to learn next")
+        for skill, jobs, percent in zip(
+            to_learn["Skill"], to_learn["Jobs"], to_learn["Percent of jobs"]
+        ):
+            st.markdown(f"- **{skill}**: in {jobs} of {total} jobs ({percent}%)")
 
     top_lower = {skill.lower() for skill in df["Skill"]}
     other_skills = [skill for skill in my_skills if skill.lower() not in top_lower]
@@ -240,8 +271,6 @@ def my_skills_page():
         st.subheader("Your other skills")
         st.caption("Skills you have that aren't in this top list.")
         st.write(", ".join(other_skills))
-
-
 
 
 def saved_jobs_page():
