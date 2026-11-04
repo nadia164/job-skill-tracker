@@ -34,9 +34,8 @@ def add_job_page():
     source = st.radio("How do you want to add it?", ["Paste text", "From a link"], horizontal=True)
 
     with st.form("add_job_form"):
-        title = st.text_input("Job title", placeholder="Junior Software Engineer")
-
         if source == "Paste text":
+            title = st.text_input("Job title", placeholder="Junior Software Engineer")
             description = st.text_area(
                 "Job description",
                 height=300,
@@ -44,6 +43,10 @@ def add_job_page():
             )
             url = ""
         else:
+            title = st.text_input(
+                "Job title (optional)",
+                placeholder="Leave empty to use the page's title",
+            )
             url = st.text_input("Link to the job posting", placeholder="https://company.com/careers/junior-engineer")
             st.caption("Works best with company career pages. Sites like LinkedIn and Indeed usually block this.")
             description = ""
@@ -57,13 +60,13 @@ def add_job_page():
     description = description.strip()
     url = url.strip()
 
-    if not title:
-        st.error("Enter a job title.")
-        return
-
-    if source == "Paste text" and not description:
-        st.error("Paste the job description.")
-        return
+    if source == "Paste text":
+        if not title:
+            st.error("Enter a job title.")
+            return
+        if not description:
+            st.error("Paste the job description.")
+            return
 
     if source == "From a link":
         if not url:
@@ -72,10 +75,17 @@ def add_job_page():
 
         with st.spinner("Reading the page..."):
             try:
-                description = fetch_posting_text(url)
+                page_title, description = fetch_posting_text(url)
             except FetchError as error:
                 st.error(str(error))
                 return
+
+        if not title:
+            title = page_title
+
+        if not title:
+            st.error("Couldn't find a title on this page. Enter a job title and try again.")
+            return
 
     with st.spinner("Extracting skills with AI..."):
         try:

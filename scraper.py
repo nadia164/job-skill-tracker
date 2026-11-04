@@ -48,6 +48,7 @@ def fetch_posting_text(url):
         raise FetchError(f"The page returned an error (status {response.status_code}).")
 
     soup = BeautifulSoup(response.text, "html.parser")
+    page_title = soup.title.get_text(strip=True) if soup.title else ""
 
     for tag in soup(["script", "style", "noscript", "svg", "nav", "header", "footer"]):
         tag.decompose()
@@ -61,4 +62,4 @@ def fetch_posting_text(url):
             "with JavaScript. Copy the posting text and paste it instead."
         )
 
-    return text[:MAX_CHARS]
+    return page_title, text[:MAX_CHARS]
