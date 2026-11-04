@@ -1,20 +1,28 @@
 # Job Skill Tracker
 
-A command-line tool that uses AI to extract skills from job postings and ranks which skills appear most often across them.
+An AI-powered tool that extracts skills from job postings and shows which skills employers ask for most, with a web dashboard and a command-line version.
 
 I built this during my own job search to find out which skills employers are actually asking for, so I know what to focus on learning.
+
+![Top skills dashboard](screenshots/top-skills.png)
 
 ## Features
 
 - Paste in any job posting and save it to a local database
 - AI automatically extracts the skills (languages, frameworks, tools, soft skills)
-- See the top skills across all saved postings, with how many jobs mention each one
-- View the skills for any single job
+- Interactive bar chart of the most requested skills, with an adjustable number of skills shown
+- Summary cards for jobs saved, the top skill, and unique skills found
+- Browse saved jobs and view the skills for any single job
 - Handles busy or unavailable AI models with automatic retries and fallbacks
+- Two interfaces sharing the same database: a Streamlit web app and a command-line app
+
+![Adding a job](screenshots/add-job.png)
 
 ## Tech Stack
 
 - **Python 3**
+- **Streamlit** for the web interface
+- **pandas** and **Altair** for data processing and charts
 - **SQLite** for storage
 - **Google Gemini API** (`google-genai` SDK) for skill extraction
 - **python-dotenv** for managing the API key
@@ -22,24 +30,30 @@ I built this during my own job search to find out which skills employers are act
 ## How It Works
 
 ```
-Job posting text
-      |
-      v
-  main.py  ------>  ai.py  ------>  Gemini API
-      |               |
-      |        returns a cleaned list of skills
-      v
- database.py  ---->  SQLite (jobs + skills tables)
-      |
-      v
- Top skills query (GROUP BY + COUNT)
+              Job posting text
+                     |
+        +------------+------------+
+        |                         |
+     app.py                    main.py
+  (web interface)          (command line)
+        |                         |
+        +------------+------------+
+                     |
+           +---------+---------+
+           |                   |
+         ai.py            database.py
+           |                   |
+      Gemini API      SQLite (jobs + skills)
 ```
 
-The code is split into three files, each with one job:
+The code is split so each file has one job:
 
-- `main.py` handles the menu and user input
+- `app.py` is the Streamlit web interface
+- `main.py` is the command-line interface
 - `ai.py` handles everything related to the AI provider
 - `database.py` handles all database queries
+
+Both interfaces call the same functions in `ai.py` and `database.py`. The web interface was added later without changing either of those files.
 
 ## Setup
 
@@ -66,41 +80,35 @@ The code is split into three files, each with one job:
 
 4. Get a free API key from [Google AI Studio](https://aistudio.google.com/), then copy `.env.example` to a new file named `.env` and add your key.
 
-5. Run the app:
+5. Run the web app:
+
+   ```
+   streamlit run app.py
+   ```
+
+   Or the command-line version:
 
    ```
    python main.py
    ```
 
-## Example
-
-```
-=== Job Skill Tracker ===
-1. Add a job posting
-2. List saved jobs
-3. Show top skills
-4. Show skills for a job
-5. Show number of jobs saved
-6. Quit
-Choose an option: 3
-
-Top skills across 3 jobs:
-   1. Python - 3 of 3 jobs (100%)
-   2. Git - 2 of 3 jobs (67%)
-   3. SQL - 2 of 3 jobs (67%)
-```
-
 ## Design Decisions
 
-- **Separate AI module:** All AI code lives in `ai.py` behind one function, `extract_skills()`. Switching to another provider (like Claude or OpenAI) only means replacing that file.
+- **Separate AI and database modules:** All AI code lives in `ai.py` behind one function, `extract_skills()`, and all SQL lives in `database.py`. This made it possible to add the web interface without touching either file, and switching to another AI provider (like Claude or OpenAI) only means replacing `ai.py`.
 - **Retries and fallbacks:** If a model is busy (HTTP 503), the app waits and retries once, then falls back to another model. Requests also have a timeout, so the app never hangs.
-- **Structured AI output:** The model is asked to return JSON only, and the result is cleaned to remove blanks and duplicates.
+- **Structured AI output:** The model is asked to return JSON only, and the result is cleaned to remove blanks and duplicates. Postings where no skills are found are not saved.
 - **Atomic saves:** A job and its skills are saved in a single transaction. If anything fails, the whole save is rolled back, so there's never half-saved data.
 - **Safe SQL:** All queries use parameterized placeholders (`?`) to prevent SQL injection.
+- **Case-insensitive grouping:** Skills are grouped with `LOWER()`, so "Python" and "python" count as the same skill.
+
+## Versions
+
+- **v1.0:** Command-line version
+- **v2.0:** Added the Streamlit web interface with charts
 
 ## Future Improvements
 
-- Charts of the top skills
 - Filter top skills by job title or date
 - Compare my own skills against the most requested ones
 - Import postings from a URL
+- Deploy the web app online
