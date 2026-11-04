@@ -1,6 +1,13 @@
 import streamlit as st
+from ai import extract_skills
 
-from database import create_tables, get_all_jobs, get_skills_for_job, count_jobs
+from database import (
+    create_tables, 
+    add_job_with_skills,
+    get_all_jobs, 
+    get_skills_for_job, 
+    count_jobs
+)
 
 st.set_page_config(page_title="Job Skill Tracker", layout="wide")
 
@@ -11,7 +18,39 @@ page = st.sidebar.radio("Go to", ["Add a job", "Top skills", "Saved jobs"])
 
 def add_job_page():
     st.title("Add a job")
-    st.info("Coming in the next step.")
+    
+    with st.form("add_job_form"):
+        title = st.text_input("Job title", placeholder="Junior Software Engineer")
+        description = st.text_area(
+            "Job description",
+            height=300,
+            placeholder="Paste the full job posting here",
+        )
+        submitted = st.form_submit_button("Extract skills and save")
+
+    if not submitted:
+        return
+
+    title = title.strip()
+    description = description.strip()
+
+    if not title or not description:
+        st.error("Enter both a job title and a job description.")
+        return
+
+    with st.spinner("Extracting skills with AI..."):
+        try:
+            skills = extract_skills(description)
+
+        except Exception as error:
+            st.error(f"Couldn't extract skills: {error}")
+            st.info("Nothing was saved. Your text is still in the form, so you can try again.")
+            return
+
+    job_id = add_job_with_skills(title, description, skills)
+
+    st.success(f"Saved job #{job_id}: {title} ({len(skills)} skills found)")
+    st.write(", ".join(skills))
 
 def top_skills_page():
     st.title("Top skills")
