@@ -67,6 +67,7 @@ def add_job_page():
 def top_skills_page():
     st.title("Top skills")
 
+    all_jobs = count_jobs()
     if not count_jobs():
         st.info("No jobs saved yet. Add one on the Add a job page.")
         return
@@ -103,6 +104,9 @@ def top_skills_page():
     if not total:
         st.info("No jobs match these filters.")
         return
+
+    if total != all_jobs:
+        st.caption(f"Showing {total} of {all_jobs} jobs")
 
     limit = st.slider("How many skills to show", min_value=5, max_value=30, value=10)
 
