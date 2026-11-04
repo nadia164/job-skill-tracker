@@ -233,6 +233,15 @@ def my_skills_page():
     ):
         st.markdown(f"- **{skill}**: in {jobs} of {total} jobs ({percent}%)")
 
+    top_lower = {skill.lower() for skill in df["Skill"]}
+    other_skills = [skill for skill in my_skills if skill.lower() not in top_lower]
+
+    if other_skills:
+        st.subheader("Your other skills")
+        st.caption("Skills you have that aren't in this top list.")
+        st.write(", ".join(other_skills))
+
+
 
 
 def saved_jobs_page():
